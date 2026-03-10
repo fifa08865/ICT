@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ICT Trading Checker — US100</title>
+  <meta name="description" content="ตรวจสอบเงื่อนไข ICT Trading สำหรับ US100 แบบ Real-time พร้อมแจ้งเตือนและแนะนำ SL/TP">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Thai:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Header -->
+  <header class="header">
+    <div class="header-left">
+      <div class="logo">ICT</div>
+      <div class="header-title">
+        <h1>ICT Trading Checker</h1>
+        <p>ระบบเทรด ICT — ปลาทูดูกราฟ</p>
+      </div>
+    </div>
+    <div class="price-display">
+      <span class="current-price" id="current-price">—</span>
+      <span class="price-change" id="price-change">—</span>
+    </div>
+    <div class="header-right">
+      <div class="live-badge">
+        <span class="live-dot"></span>
+        US100
+      </div>
+      <button class="sound-btn" id="sound-toggle" title="เปิด/ปิดเสียงแจ้งเตือน">🔔</button>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="main-container">
+    <!-- Chart Section -->
+    <section class="chart-section">
+      <div class="chart-controls">
+        <div class="timeframe-buttons">
+          <button class="tf-btn" data-tf="1">1m</button>
+          <button class="tf-btn active" data-tf="5">5m</button>
+          <button class="tf-btn" data-tf="15">15m</button>
+          <button class="tf-btn" data-tf="60">1H</button>
+        </div>
+        <div class="chart-actions">
+          <div class="auto-check-container">
+            <label class="toggle-switch">
+              <input type="checkbox" id="auto-check-toggle" checked>
+              <span class="toggle-slider"></span>
+            </label>
+            <span class="toggle-label">Auto-Check</span>
+            <span class="countdown" id="countdown">30s</span>
+          </div>
+          <button class="action-btn primary" id="check-now-btn">
+            🔍 ตรวจสอบเดี๋ยวนี้
+          </button>
+        </div>
+      </div>
+      <div class="chart-wrapper">
+        <div id="chart-container"></div>
+        <div class="chart-loading" id="chart-loading">
+          <div class="spinner"></div>
+          <span>กำลังโหลดกราฟ US100...</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <!-- ICT Conditions -->
+      <div class="glass-card" id="conditions-card">
+        <div class="card-header">
+          <h3><span class="icon">📋</span> เงื่อนไข ICT Trading</h3>
+          <span class="direction-badge none" id="direction-badge">รอสัญญาณ</span>
+        </div>
+        <div class="card-body">
+          <div class="condition-list" id="condition-list">
+            <div class="condition-item pending" id="cond-1" data-condition="liquidity">
+              <div class="condition-status">1</div>
+              <div class="condition-info">
+                <div class="condition-name">Liquidity Sweep</div>
+                <div class="condition-desc">ราคา Sweep จุด High/Low ก่อนหน้า</div>
+              </div>
+            </div>
+            <div class="condition-item pending" id="cond-2" data-condition="mss">
+              <div class="condition-status">2</div>
+              <div class="condition-info">
+                <div class="condition-name">Market Structure Shift (MSS)</div>
+                <div class="condition-desc">Break of Structure หลัง Sweep</div>
+              </div>
+            </div>
+            <div class="condition-item pending" id="cond-3" data-condition="fvg">
+              <div class="condition-status">3</div>
+              <div class="condition-info">
+                <div class="condition-name">Fair Value Gap (FVG)</div>
+                <div class="condition-desc">เกิดช่องว่างราคา 3 แท่งเทียน</div>
+              </div>
+            </div>
+            <div class="condition-item pending" id="cond-4" data-condition="entry">
+              <div class="condition-status">4</div>
+              <div class="condition-info">
+                <div class="condition-name">Entry at FVG</div>
+                <div class="condition-desc">ราคาย้อนกลับเข้า FVG</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="progress-section">
+          <div class="progress-bar-container">
+            <div class="progress-bar-fill" id="progress-fill" style="width: 0%"></div>
+          </div>
+          <div class="progress-text">
+            <span>ความคืบหน้า</span>
+            <span class="count"><span id="progress-count">0</span>/4 เงื่อนไข</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Alert Card -->
+      <div class="glass-card alert-card" id="alert-card">
+        <div class="card-header">
+          <h3><span class="icon">🚨</span> สัญญาณเทรด</h3>
+        </div>
+        <div class="alert-content" id="alert-content">
+          <div class="alert-icon">⏳</div>
+          <div class="alert-title">รอเงื่อนไขครบ</div>
+          <div class="alert-subtitle">ระบบกำลังตรวจสอบเงื่อนไข ICT ทั้ง 4 ข้อ</div>
+        </div>
+      </div>
+
+      <!-- SL/TP Card -->
+      <div class="glass-card" id="sltp-card">
+        <div class="card-header">
+          <h3><span class="icon">🎯</span> แนะนำ SL / TP</h3>
+        </div>
+        <div class="card-body">
+          <div class="sltp-grid">
+            <div class="sltp-item sl">
+              <div class="sltp-label">Stop Loss</div>
+              <div class="sltp-value" id="sl-value">—</div>
+              <div class="sltp-pips" id="sl-pips"></div>
+            </div>
+            <div class="sltp-item tp">
+              <div class="sltp-label">Take Profit (1:2)</div>
+              <div class="sltp-value" id="tp-value">—</div>
+              <div class="sltp-pips" id="tp-pips"></div>
+            </div>
+          </div>
+          <div class="sltp-grid" style="margin-top: 10px;">
+            <div class="sltp-item tp">
+              <div class="sltp-label">TP (1:3)</div>
+              <div class="sltp-value" id="tp3-value">—</div>
+              <div class="sltp-pips" id="tp3-pips"></div>
+            </div>
+            <div class="sltp-item" style="border-color: rgba(139, 92, 246, 0.15);">
+              <div class="sltp-label" style="color: var(--accent-purple);">Entry Price</div>
+              <div class="sltp-value" id="entry-value">—</div>
+              <div class="sltp-pips" id="entry-pips"></div>
+            </div>
+          </div>
+          <div class="rr-section">
+            <div class="rr-label">Risk : Reward Ratio</div>
+            <div class="rr-values">
+              <span class="rr-chip">1 : 2</span>
+              <span class="rr-chip">1 : 3</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Activity Log -->
+      <div class="glass-card">
+        <div class="card-header">
+          <h3><span class="icon">📜</span> บันทึกกิจกรรม</h3>
+        </div>
+        <div class="card-body">
+          <div class="log-entries" id="log-entries">
+            <div class="empty-state">
+              <div class="icon">📝</div>
+              <div>ยังไม่มีบันทึก</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- TradingView Lightweight Charts -->
+  <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
