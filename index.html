@@ -1,15 +1,20 @@
 <!DOCTYPE html>
 <html lang="th">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ICT Trading Checker — US100</title>
-  <meta name="description" content="ตรวจสอบเงื่อนไข ICT Trading สำหรับ US100 แบบ Real-time พร้อมแจ้งเตือนและแนะนำ SL/TP">
+  <meta name="description"
+    content="ตรวจสอบเงื่อนไข ICT Trading สำหรับ US100 แบบ Real-time พร้อมแจ้งเตือนและแนะนำ SL/TP">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Thai:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Thai:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap"
+    rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
 
   <!-- Toast Container -->
@@ -47,8 +52,17 @@
           <button class="tf-btn active" data-tf="5">5m</button>
           <button class="tf-btn" data-tf="15">15m</button>
           <button class="tf-btn" data-tf="60">1H</button>
+          <button class="tf-btn" data-tf="240">4H</button>
+          <button class="tf-btn" data-tf="D">1D</button>
         </div>
         <div class="chart-actions">
+          <div class="auto-check-container">
+            <label class="toggle-switch">
+              <input type="checkbox" id="early-entry-toggle">
+              <span class="toggle-slider early"></span>
+            </label>
+            <span class="toggle-label">3 เงื่อนไขพอ</span>
+          </div>
           <div class="auto-check-container">
             <label class="toggle-switch">
               <input type="checkbox" id="auto-check-toggle" checked>
@@ -63,10 +77,8 @@
         </div>
       </div>
       <div class="chart-wrapper">
-        <div id="chart-container"></div>
-        <div class="chart-loading" id="chart-loading">
-          <div class="spinner"></div>
-          <span>กำลังโหลดกราฟ US100...</span>
+        <div id="tradingview-widget-container">
+          <div id="tradingview-widget"></div>
         </div>
       </div>
     </section>
@@ -191,8 +203,9 @@
     </aside>
   </main>
 
-  <!-- TradingView Lightweight Charts -->
-  <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
+  <!-- TradingView Widget -->
+  <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
   <script src="app.js"></script>
 </body>
+
 </html>

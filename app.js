@@ -6,7 +6,7 @@
  * 1. Liquidity Sweep — ราคา Sweep High/Low ก่อนหน้า
  * 2. Market Structure Shift (MSS) — Break of Structure หลัง Sweep
  * 3. Fair Value Gap (FVG) — ช่องว่างราคา 3 แท่งเทียน
- * 4. Entry at FVG — ราคาย้อนกลับเข้า FVG
+ * 4. Entry at FVG — ราคาย้อนกลับเข้า FVG (ข้ามได้ถ้าเปิดโหมด "3 เงื่อนไขพอ")
  */
 
 // ============================================================
@@ -14,12 +14,12 @@
 // ============================================================
 const CONFIG = {
   symbol: 'NQ=F', // Nasdaq 100 Futures (Yahoo Finance)
+  tvSymbol: 'OANDA:NAS100USD', // TradingView symbol
   refreshInterval: 30000, // 30 seconds
-  corsProxy: 'https://corsproxy.io/?',
-  lookbackCandles: 100, // Number of candles to analyze
-  swingLookback: 5, // Candles each side for swing detection
-  fvgMinGapPercent: 0.02, // Minimum FVG gap as % of price
-  entryFvgTolerance: 0.3, // 30% penetration into FVG counts as entry
+  lookbackCandles: 100,
+  swingLookback: 5,
+  fvgMinGapPercent: 0.02,
+  entryFvgTolerance: 0.3,
 };
 
 // Timeframe mapping for Yahoo Finance
@@ -28,29 +28,38 @@ const TIMEFRAME_MAP = {
   '5': { interval: '5m', range: '5d' },
   '15': { interval: '15m', range: '5d' },
   '60': { interval: '60m', range: '10d' },
+  '240': { interval: '60m', range: '30d' },
+  'D': { interval: '1d', range: '6mo' },
+};
+
+// TradingView timeframe mapping
+const TV_INTERVAL_MAP = {
+  '1': '1',
+  '5': '5',
+  '15': '15',
+  '60': '60',
+  '240': '240',
+  'D': 'D',
 };
 
 // ============================================================
 // Global State
 // ============================================================
-let chart = null;
-let candleSeries = null;
-let chartMarkers = [];
-let fvgBoxes = [];
+let tvWidget = null;
 let currentTimeframe = '5';
 let candles = [];
 let autoCheckEnabled = true;
-let autoCheckTimer = null;
-let countdown = 30;
 let countdownTimer = null;
+let countdown = 30;
 let soundEnabled = true;
+let earlyEntryMode = false;
 let analysisResult = null;
 
 // ============================================================
 // Initialization
 // ============================================================
 document.addEventListener('DOMContentLoaded', () => {
-  initChart();
+  initTradingViewWidget();
   initControls();
   fetchDataAndAnalyze();
   startAutoCheck();
@@ -59,64 +68,51 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ============================================================
-// Chart Setup (TradingView Lightweight Charts)
+// TradingView Widget Setup
 // ============================================================
-function initChart() {
-  const container = document.getElementById('chart-container');
+function initTradingViewWidget() {
+  createWidget(TV_INTERVAL_MAP[currentTimeframe]);
+}
 
-  chart = LightweightCharts.createChart(container, {
-    layout: {
-      background: { type: 'solid', color: 'transparent' },
-      textColor: '#9ca3af',
-      fontFamily: "'Inter', 'Noto Sans Thai', sans-serif",
-      fontSize: 12,
-    },
-    grid: {
-      vertLines: { color: 'rgba(255,255,255,0.03)' },
-      horzLines: { color: 'rgba(255,255,255,0.03)' },
-    },
-    crosshair: {
-      mode: LightweightCharts.CrosshairMode.Normal,
-      vertLine: {
-        color: 'rgba(59, 130, 246, 0.3)',
-        width: 1,
-        style: LightweightCharts.LineStyle.Dashed,
-      },
-      horzLine: {
-        color: 'rgba(59, 130, 246, 0.3)',
-        width: 1,
-        style: LightweightCharts.LineStyle.Dashed,
-      },
-    },
-    rightPriceScale: {
-      borderColor: 'rgba(255,255,255,0.08)',
-      scaleMargins: { top: 0.1, bottom: 0.1 },
-    },
-    timeScale: {
-      borderColor: 'rgba(255,255,255,0.08)',
-      timeVisible: true,
-      secondsVisible: false,
-    },
-    handleScroll: { vertTouchDrag: false },
-  });
+function createWidget(interval) {
+  // Clear old widget
+  const container = document.getElementById('tradingview-widget');
+  container.innerHTML = '';
 
-  candleSeries = chart.addCandlestickSeries({
-    upColor: '#10b981',
-    downColor: '#ef4444',
-    borderUpColor: '#10b981',
-    borderDownColor: '#ef4444',
-    wickUpColor: '#10b981',
-    wickDownColor: '#ef4444',
+  tvWidget = new TradingView.widget({
+    container_id: 'tradingview-widget',
+    symbol: CONFIG.tvSymbol,
+    interval: interval,
+    timezone: 'Asia/Bangkok',
+    theme: 'dark',
+    style: '1', // Candlestick
+    locale: 'th_TH',
+    toolbar_bg: '#0a0e17',
+    enable_publishing: false,
+    hide_top_toolbar: false,
+    hide_legend: false,
+    save_image: false,
+    allow_symbol_change: true,
+    withdateranges: true,
+    details: false,
+    hotlist: false,
+    calendar: false,
+    studies: [],
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'rgba(10, 14, 23, 1)',
+    gridColor: 'rgba(255, 255, 255, 0.03)',
+    overrides: {
+      'paneProperties.background': '#0a0e17',
+      'paneProperties.backgroundType': 'solid',
+      'mainSeriesProperties.candleStyle.upColor': '#10b981',
+      'mainSeriesProperties.candleStyle.downColor': '#ef4444',
+      'mainSeriesProperties.candleStyle.borderUpColor': '#10b981',
+      'mainSeriesProperties.candleStyle.borderDownColor': '#ef4444',
+      'mainSeriesProperties.candleStyle.wickUpColor': '#10b981',
+      'mainSeriesProperties.candleStyle.wickDownColor': '#ef4444',
+    },
   });
-
-  // Resize observer
-  const resizeObserver = new ResizeObserver(entries => {
-    for (const entry of entries) {
-      const { width, height } = entry.contentRect;
-      chart.applyOptions({ width, height });
-    }
-  });
-  resizeObserver.observe(container);
 }
 
 // ============================================================
@@ -130,6 +126,11 @@ function initControls() {
       btn.classList.add('active');
       currentTimeframe = btn.dataset.tf;
       addLog('info', `เปลี่ยน Timeframe เป็น ${btn.textContent}`);
+
+      // Update TradingView widget
+      createWidget(TV_INTERVAL_MAP[currentTimeframe]);
+
+      // Re-run ICT analysis
       fetchDataAndAnalyze();
     });
   });
@@ -152,6 +153,21 @@ function initControls() {
     }
   });
 
+  // Early entry toggle (3 เงื่อนไขพอ)
+  document.getElementById('early-entry-toggle').addEventListener('change', (e) => {
+    earlyEntryMode = e.target.checked;
+    if (earlyEntryMode) {
+      addLog('warning', 'เปิดโหมด "3 เงื่อนไขพอ" — แจ้งเตือนเมื่อครบ 3/4 เงื่อนไข');
+      showToast('alert', '⚡ เปิดโหมด 3 เงื่อนไขพอ — จะแจ้งเตือนเมื่อผ่าน 3/4 เงื่อนไข');
+    } else {
+      addLog('info', 'ปิดโหมด "3 เงื่อนไขพอ" — แจ้งเตือนเมื่อครบ 4/4 เงื่อนไข');
+    }
+    // Re-evaluate with current analysis
+    if (analysisResult) {
+      updateConditionsUI(analysisResult);
+    }
+  });
+
   // Sound toggle
   document.getElementById('sound-toggle').addEventListener('click', () => {
     soundEnabled = !soundEnabled;
@@ -162,61 +178,61 @@ function initControls() {
 }
 
 // ============================================================
-// Data Fetching (Yahoo Finance via CORS Proxy)
+// Data Fetching (Yahoo Finance via Vercel API or CORS Proxy)
 // ============================================================
 async function fetchDataAndAnalyze() {
-  const loading = document.getElementById('chart-loading');
-  loading.classList.remove('hidden');
-
   try {
     const tf = TIMEFRAME_MAP[currentTimeframe];
-    const url = `${CONFIG.corsProxy}https://query1.finance.yahoo.com/v8/finance/chart/${CONFIG.symbol}?interval=${tf.interval}&range=${tf.range}&includePrePost=true`;
 
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    // Try Vercel serverless API first, then fall back to CORS proxy
+    let data = null;
+    try {
+      const apiUrl = `/api/yahoo?symbol=${CONFIG.symbol}&interval=${tf.interval}&range=${tf.range}`;
+      const response = await fetch(apiUrl);
+      if (response.ok) {
+        data = await response.json();
+      }
+    } catch (e) {
+      // Vercel API not available (local dev)
+    }
 
-    const data = await response.json();
+    if (!data) {
+      // Fallback: CORS proxy
+      const corsUrl = `https://corsproxy.io/?https://query1.finance.yahoo.com/v8/finance/chart/${CONFIG.symbol}?interval=${tf.interval}&range=${tf.range}&includePrePost=true`;
+      const response = await fetch(corsUrl);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      data = await response.json();
+    }
+
     const result = data.chart.result[0];
-
     if (!result || !result.timestamp) {
       throw new Error('ไม่พบข้อมูล');
     }
 
     candles = parseYahooData(result);
-
     if (candles.length === 0) {
       throw new Error('ไม่มีข้อมูลแท่งเทียน');
     }
 
-    // Update chart
-    candleSeries.setData(candles);
-    chart.timeScale().fitContent();
-
     // Update price display
     updatePriceDisplay(candles);
-
-    // Clear previous markers and drawings
-    clearChartDrawings();
 
     // Run ICT analysis
     analysisResult = analyzeICT(candles);
 
     // Update UI with results
     updateConditionsUI(analysisResult);
-    drawAnalysisOnChart(analysisResult);
 
     addLog('success', `โหลดข้อมูลสำเร็จ — ${candles.length} แท่งเทียน (${tf.interval})`);
 
   } catch (error) {
     console.error('Fetch error:', error);
-    addLog('error', `โหลดข้อมูลล้มเหลว: ${error.message}`);
+    addLog('error', `โหลดข้อมูลวิเคราะห์ล้มเหลว: ${error.message}`);
 
-    // Try fallback with demo data
+    // Fallback: demo data for analysis only
     if (candles.length === 0) {
       generateDemoData();
     }
-  } finally {
-    loading.classList.add('hidden');
   }
 }
 
@@ -256,10 +272,10 @@ function updatePriceDisplay(data) {
 }
 
 // ============================================================
-// Demo Data Fallback
+// Demo Data Fallback (Analysis Only — chart is TradingView)
 // ============================================================
 function generateDemoData() {
-  addLog('warning', 'ใช้ข้อมูลตัวอย่าง — ไม่สามารถเชื่อมต่อ API ได้');
+  addLog('warning', 'ใช้ข้อมูลตัวอย่างสำหรับวิเคราะห์ — กราฟ TradingView ยัง real-time');
   const now = Math.floor(Date.now() / 1000);
   const interval = currentTimeframe === '1' ? 60 : currentTimeframe === '5' ? 300 : currentTimeframe === '15' ? 900 : 3600;
 
@@ -284,25 +300,17 @@ function generateDemoData() {
     });
   }
 
-  candleSeries.setData(candles);
-  chart.timeScale().fitContent();
   updatePriceDisplay(candles);
-
   analysisResult = analyzeICT(candles);
   updateConditionsUI(analysisResult);
-  drawAnalysisOnChart(analysisResult);
 }
 
 // ============================================================
 // ICT Analysis Engine
 // ============================================================
 function analyzeICT(data) {
-  if (data.length < CONFIG.lookbackCandles) {
-    // Use all available data if less than lookback
-  }
-
   const result = {
-    direction: null, // 'buy' or 'sell'
+    direction: null,
     conditions: {
       liquiditySweep: { passed: false, detail: '', level: null, index: null },
       mss: { passed: false, detail: '', level: null, index: null },
@@ -310,8 +318,8 @@ function analyzeICT(data) {
       entry: { passed: false, detail: '', price: null },
     },
     sl: null,
-    tp2: null, // 1:2 RR TP
-    tp3: null, // 1:3 RR TP
+    tp2: null,
+    tp3: null,
     entryPrice: null,
     passedCount: 0,
   };
@@ -425,7 +433,7 @@ function findSwings(data) {
 // Liquidity Sweep Detection
 // ============================================================
 function detectLiquiditySweep(data, swings) {
-  const recentCount = 30; // Look at last 30 candles
+  const recentCount = 30;
   const startIdx = Math.max(0, data.length - recentCount);
 
   // Check for sweep of recent swing high (bearish setup)
@@ -433,7 +441,6 @@ function detectLiquiditySweep(data, swings) {
     const swingH = swings.highs[i];
     if (swingH.index < startIdx) continue;
 
-    // Look for candles after this swing that go above then close below
     for (let j = swingH.index + 1; j < data.length; j++) {
       if (data[j].high > swingH.price && data[j].close < swingH.price) {
         return {
@@ -473,19 +480,13 @@ function detectMSS(data, sweep) {
   const startIdx = sweep.index;
 
   if (sweep.direction === 'sell') {
-    // After sweeping high, look for break below recent swing low
     let recentLow = Infinity;
-    let recentLowIdx = startIdx;
-
-    // Find the recent swing low before/at the sweep
     for (let i = Math.max(0, startIdx - 10); i <= startIdx; i++) {
       if (data[i].low < recentLow) {
         recentLow = data[i].low;
-        recentLowIdx = i;
       }
     }
 
-    // Check if price breaks below this low
     for (let i = startIdx + 1; i < data.length; i++) {
       if (data[i].close < recentLow) {
         return {
@@ -496,14 +497,10 @@ function detectMSS(data, sweep) {
       }
     }
   } else {
-    // After sweeping low, look for break above recent swing high
     let recentHigh = -Infinity;
-    let recentHighIdx = startIdx;
-
     for (let i = Math.max(0, startIdx - 10); i <= startIdx; i++) {
       if (data[i].high > recentHigh) {
         recentHigh = data[i].high;
-        recentHighIdx = i;
       }
     }
 
@@ -525,7 +522,6 @@ function detectMSS(data, sweep) {
 // Fair Value Gap (FVG) Detection
 // ============================================================
 function detectFVG(data, mss, direction) {
-  // Look for FVGs around the MSS area (from sweep area to MSS)
   const searchStart = Math.max(0, mss.index - 15);
   const searchEnd = Math.min(data.length - 1, mss.index + 5);
 
@@ -533,7 +529,6 @@ function detectFVG(data, mss, direction) {
 
   for (let i = searchStart + 1; i < searchEnd - 1 && i < data.length - 1; i++) {
     if (direction === 'sell') {
-      // Bearish FVG: candle1 low > candle3 high (gap down)
       const gap = data[i - 1].low - data[i + 1].high;
       const gapPct = gap / data[i].close;
 
@@ -547,7 +542,6 @@ function detectFVG(data, mss, direction) {
         });
       }
     } else {
-      // Bullish FVG: candle1 high < candle3 low (gap up)
       const gap = data[i + 1].low - data[i - 1].high;
       const gapPct = gap / data[i].close;
 
@@ -563,14 +557,12 @@ function detectFVG(data, mss, direction) {
     }
   }
 
-  // Return the most recent FVG closest to MSS
   if (fvgs.length > 0) {
-    // Sort by proximity to MSS
     fvgs.sort((a, b) => Math.abs(b.index - mss.index) - Math.abs(a.index - mss.index));
     return fvgs[0];
   }
 
-  // Relax the gap percentage requirement and try again
+  // Relaxed search
   for (let i = searchStart + 1; i < searchEnd - 1 && i < data.length - 1; i++) {
     if (direction === 'sell') {
       const gap = data[i - 1].low - data[i + 1].high;
@@ -604,12 +596,10 @@ function detectFVG(data, mss, direction) {
 // Entry Detection (Price retracing into FVG)
 // ============================================================
 function detectEntry(data, fvg, direction) {
-  // Check if any candle after the FVG has retraced into it
   for (let i = fvg.index + 2; i < data.length; i++) {
     const mid = (fvg.high + fvg.low) / 2;
 
     if (direction === 'sell') {
-      // Price should retrace up into the bearish FVG
       if (data[i].high >= fvg.low + (fvg.high - fvg.low) * CONFIG.entryFvgTolerance) {
         return {
           price: mid,
@@ -617,7 +607,6 @@ function detectEntry(data, fvg, direction) {
         };
       }
     } else {
-      // Price should retrace down into the bullish FVG
       if (data[i].low <= fvg.high - (fvg.high - fvg.low) * CONFIG.entryFvgTolerance) {
         return {
           price: mid,
@@ -628,139 +617,6 @@ function detectEntry(data, fvg, direction) {
   }
 
   return null;
-}
-
-// ============================================================
-// Chart Drawings
-// ============================================================
-function clearChartDrawings() {
-  chartMarkers = [];
-  candleSeries.setMarkers([]);
-  fvgBoxes.forEach(box => {
-    try { candleSeries.removePriceLine(box); } catch (e) { }
-  });
-  fvgBoxes = [];
-}
-
-function drawAnalysisOnChart(result) {
-  const markers = [];
-  const conds = result.conditions;
-
-  // Mark liquidity sweep
-  if (conds.liquiditySweep.passed && conds.liquiditySweep.index != null) {
-    const idx = conds.liquiditySweep.index;
-    if (idx < candles.length) {
-      markers.push({
-        time: candles[idx].time,
-        position: result.direction === 'sell' ? 'aboveBar' : 'belowBar',
-        color: '#f59e0b',
-        shape: result.direction === 'sell' ? 'arrowDown' : 'arrowUp',
-        text: 'Sweep',
-      });
-    }
-  }
-
-  // Mark MSS
-  if (conds.mss.passed && conds.mss.index != null) {
-    const idx = conds.mss.index;
-    if (idx < candles.length) {
-      markers.push({
-        time: candles[idx].time,
-        position: result.direction === 'sell' ? 'belowBar' : 'aboveBar',
-        color: '#3b82f6',
-        shape: 'circle',
-        text: 'MSS',
-      });
-    }
-  }
-
-  // Mark FVG
-  if (conds.fvg.passed && conds.fvg.index != null) {
-    const idx = conds.fvg.index;
-    if (idx < candles.length) {
-      markers.push({
-        time: candles[idx].time,
-        position: 'inBar',
-        color: '#8b5cf6',
-        shape: 'square',
-        text: 'FVG',
-      });
-
-      // Draw FVG levels as price lines
-      const fvgHighLine = candleSeries.createPriceLine({
-        price: conds.fvg.high,
-        color: 'rgba(139, 92, 246, 0.5)',
-        lineWidth: 1,
-        lineStyle: LightweightCharts.LineStyle.Dashed,
-        axisLabelVisible: true,
-        title: 'FVG High',
-      });
-      fvgBoxes.push(fvgHighLine);
-
-      const fvgLowLine = candleSeries.createPriceLine({
-        price: conds.fvg.low,
-        color: 'rgba(139, 92, 246, 0.5)',
-        lineWidth: 1,
-        lineStyle: LightweightCharts.LineStyle.Dashed,
-        axisLabelVisible: true,
-        title: 'FVG Low',
-      });
-      fvgBoxes.push(fvgLowLine);
-    }
-  }
-
-  // Draw SL/TP lines
-  if (result.sl) {
-    const slLine = candleSeries.createPriceLine({
-      price: result.sl,
-      color: '#ef4444',
-      lineWidth: 2,
-      lineStyle: LightweightCharts.LineStyle.Solid,
-      axisLabelVisible: true,
-      title: 'SL',
-    });
-    fvgBoxes.push(slLine);
-  }
-
-  if (result.tp2) {
-    const tp2Line = candleSeries.createPriceLine({
-      price: result.tp2,
-      color: '#10b981',
-      lineWidth: 2,
-      lineStyle: LightweightCharts.LineStyle.Solid,
-      axisLabelVisible: true,
-      title: 'TP 1:2',
-    });
-    fvgBoxes.push(tp2Line);
-  }
-
-  if (result.tp3) {
-    const tp3Line = candleSeries.createPriceLine({
-      price: result.tp3,
-      color: '#059669',
-      lineWidth: 1,
-      lineStyle: LightweightCharts.LineStyle.Dashed,
-      axisLabelVisible: true,
-      title: 'TP 1:3',
-    });
-    fvgBoxes.push(tp3Line);
-  }
-
-  if (result.entryPrice) {
-    const entryLine = candleSeries.createPriceLine({
-      price: result.entryPrice,
-      color: '#8b5cf6',
-      lineWidth: 2,
-      lineStyle: LightweightCharts.LineStyle.Dotted,
-      axisLabelVisible: true,
-      title: 'Entry',
-    });
-    fvgBoxes.push(entryLine);
-  }
-
-  // Sort markers by time and set
-  markers.sort((a, b) => a.time - b.time);
-  candleSeries.setMarkers(markers);
 }
 
 // ============================================================
@@ -806,15 +662,23 @@ function updateConditionsUI(result) {
     badge.textContent = 'รอสัญญาณ';
   }
 
+  // Determine required condition count
+  const requiredCount = earlyEntryMode ? 3 : 4;
+
   // Alert card
   const alertCard = document.getElementById('alert-card');
   const alertContent = document.getElementById('alert-content');
 
-  if (result.passedCount === 4) {
+  if (result.passedCount >= requiredCount && result.direction) {
     alertCard.classList.add('active');
+
+    const modeLabel = earlyEntryMode && result.passedCount === 3
+      ? ' <span class="early-badge">⚡ 3 เงื่อนไขพอ</span>'
+      : '';
+
     alertContent.innerHTML = `
       <div class="alert-icon">🎯</div>
-      <div class="alert-title">🚨 ครบทุกเงื่อนไข! พร้อมเปิดออเดอร์</div>
+      <div class="alert-title">🚨 ครบเงื่อนไข! พร้อมเปิดออเดอร์ ${modeLabel}</div>
       <div class="alert-subtitle">
         ${result.direction === 'buy' ? '🟢 แนะนำ BUY' : '🔴 แนะนำ SELL'} US100<br>
         Entry: ${result.entryPrice?.toFixed(2) || '—'} | SL: ${result.sl?.toFixed(2) || '—'} | TP: ${result.tp2?.toFixed(2) || '—'}
@@ -829,14 +693,14 @@ function updateConditionsUI(result) {
     alertContent.innerHTML = `
       <div class="alert-icon">⏳</div>
       <div class="alert-title">กำลังเข้าใกล้...</div>
-      <div class="alert-subtitle">ผ่านแล้ว ${result.passedCount}/4 เงื่อนไข — รอเงื่อนไขที่เหลือ</div>
+      <div class="alert-subtitle">ผ่านแล้ว ${result.passedCount}/${requiredCount} เงื่อนไข — รอเงื่อนไขที่เหลือ</div>
     `;
   } else {
     alertCard.classList.remove('active');
     alertContent.innerHTML = `
       <div class="alert-icon">⏳</div>
       <div class="alert-title">รอเงื่อนไขครบ</div>
-      <div class="alert-subtitle">ระบบกำลังตรวจสอบเงื่อนไข ICT ทั้ง 4 ข้อ</div>
+      <div class="alert-subtitle">ระบบกำลังตรวจสอบเงื่อนไข ICT (ต้องการ ${requiredCount}/4 ข้อ)</div>
     `;
   }
 
@@ -897,39 +761,37 @@ let lastAlertTime = 0;
 
 function triggerAlert(result) {
   const now = Date.now();
-  if (now - lastAlertTime < 60000) return; // Throttle: 1 alert per minute
+  if (now - lastAlertTime < 60000) return;
   lastAlertTime = now;
 
   const direction = result.direction === 'buy' ? 'BUY 🟢' : 'SELL 🔴';
+  const modeText = earlyEntryMode && result.passedCount === 3 ? ' (3 เงื่อนไขพอ)' : '';
 
-  // Toast notification
   showToast(
     'success',
-    `🎯 สัญญาณ ${direction} US100! Entry: ${result.entryPrice?.toFixed(2)} | SL: ${result.sl?.toFixed(2)} | TP: ${result.tp2?.toFixed(2)}`
+    `🎯 สัญญาณ ${direction} US100!${modeText} Entry: ${result.entryPrice?.toFixed(2)} | SL: ${result.sl?.toFixed(2)} | TP: ${result.tp2?.toFixed(2)}`
   );
 
-  // Sound
   if (soundEnabled) {
     playAlertSound();
   }
 
-  // Browser notification
   if ('Notification' in window && Notification.permission === 'granted') {
     new Notification('ICT Trading Checker — US100', {
-      body: `สัญญาณ ${direction}! Entry: ${result.entryPrice?.toFixed(2)} | SL: ${result.sl?.toFixed(2)} | TP: ${result.tp2?.toFixed(2)}`,
+      body: `สัญญาณ ${direction}!${modeText} Entry: ${result.entryPrice?.toFixed(2)} | SL: ${result.sl?.toFixed(2)} | TP: ${result.tp2?.toFixed(2)}`,
       icon: '🎯',
     });
   } else if ('Notification' in window && Notification.permission !== 'denied') {
     Notification.requestPermission();
   }
 
-  addLog('success', `🎯 สัญญาณ ${direction} — ครบทุกเงื่อนไข ICT!`);
+  addLog('success', `🎯 สัญญาณ ${direction}${modeText} — ครบเงื่อนไข ICT!`);
 }
 
 function playAlertSound() {
   try {
     const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    const notes = [523.25, 659.25, 783.99]; // C5, E5, G5
+    const notes = [523.25, 659.25, 783.99];
 
     notes.forEach((freq, i) => {
       const osc = audioContext.createOscillator();
@@ -966,7 +828,6 @@ function showToast(type, message) {
 
   container.appendChild(toast);
 
-  // Auto-remove after 8 seconds
   setTimeout(() => {
     toast.style.opacity = '0';
     toast.style.transform = 'translateX(100px)';
@@ -980,7 +841,6 @@ function showToast(type, message) {
 function addLog(type, message) {
   const logContainer = document.getElementById('log-entries');
 
-  // Clear empty state
   const emptyState = logContainer.querySelector('.empty-state');
   if (emptyState) emptyState.remove();
 
@@ -994,10 +854,8 @@ function addLog(type, message) {
     <span class="log-message">${message}</span>
   `;
 
-  // Insert at top
   logContainer.insertBefore(entry, logContainer.firstChild);
 
-  // Keep only last 50 entries
   while (logContainer.children.length > 50) {
     logContainer.removeChild(logContainer.lastChild);
   }
@@ -1039,7 +897,6 @@ function updateCountdownDisplay() {
 // Request notification permission on load
 // ============================================================
 if ('Notification' in window && Notification.permission === 'default') {
-  // Will request when user interacts
   document.addEventListener('click', () => {
     if (Notification.permission === 'default') {
       Notification.requestPermission();

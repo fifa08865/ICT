@@ -74,8 +74,13 @@ body::before {
 }
 
 @keyframes bgPulse {
-  0% { opacity: 0.6; }
-  100% { opacity: 1; }
+  0% {
+    opacity: 0.6;
+  }
+
+  100% {
+    opacity: 1;
+  }
 }
 
 /* ===== Header ===== */
@@ -153,8 +158,17 @@ body::before {
 }
 
 @keyframes livePulse {
-  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
-  50% { opacity: 0.6; box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+  }
+
+  50% {
+    opacity: 0.6;
+    box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+  }
 }
 
 .price-display {
@@ -297,9 +311,18 @@ body::before {
   position: relative;
 }
 
-#chart-container {
+#tradingview-widget-container {
   width: 100%;
   height: 100%;
+}
+
+#tradingview-widget {
+  width: 100%;
+  height: 100%;
+}
+
+#tradingview-widget iframe {
+  border-radius: var(--radius-lg);
 }
 
 .chart-loading {
@@ -333,7 +356,9 @@ body::before {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .chart-loading span {
@@ -463,9 +488,17 @@ body::before {
 }
 
 @keyframes checkPop {
-  0% { transform: scale(0.5); }
-  50% { transform: scale(1.2); }
-  100% { transform: scale(1); }
+  0% {
+    transform: scale(0.5);
+  }
+
+  50% {
+    transform: scale(1.2);
+  }
+
+  100% {
+    transform: scale(1);
+  }
 }
 
 .condition-info {
@@ -564,8 +597,15 @@ body::before {
 }
 
 @keyframes alertBounce {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-5px); }
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-5px);
+  }
 }
 
 .alert-title {
@@ -732,8 +772,15 @@ body::before {
 }
 
 @keyframes logFadeIn {
-  from { opacity: 0; transform: translateY(-4px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .log-time {
@@ -748,10 +795,21 @@ body::before {
   line-height: 1.4;
 }
 
-.log-entry.info .log-message { color: var(--accent-blue); }
-.log-entry.success .log-message { color: var(--accent-green); }
-.log-entry.warning .log-message { color: var(--accent-yellow); }
-.log-entry.error .log-message { color: var(--accent-red); }
+.log-entry.info .log-message {
+  color: var(--accent-blue);
+}
+
+.log-entry.success .log-message {
+  color: var(--accent-green);
+}
+
+.log-entry.warning .log-message {
+  color: var(--accent-yellow);
+}
+
+.log-entry.error .log-message {
+  color: var(--accent-red);
+}
 
 /* ===== Auto Check Toggle ===== */
 .auto-check-container {
@@ -794,12 +852,41 @@ body::before {
   transition: var(--transition-fast);
 }
 
-.toggle-switch input:checked + .toggle-slider {
+.toggle-switch input:checked+.toggle-slider {
   background: var(--accent-blue);
 }
 
-.toggle-switch input:checked + .toggle-slider::before {
+.toggle-switch input:checked+.toggle-slider::before {
   transform: translateX(20px);
+}
+
+.toggle-switch input:checked+.toggle-slider.early {
+  background: var(--accent-yellow);
+}
+
+.early-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 100px;
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--accent-yellow);
+  font-size: 0.7rem;
+  font-weight: 700;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  margin-left: 6px;
+  animation: earlyPulse 2s ease-in-out infinite;
+}
+
+@keyframes earlyPulse {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.6;
+  }
 }
 
 .toggle-label {
@@ -840,8 +927,15 @@ body::before {
 }
 
 @keyframes toastSlide {
-  from { opacity: 0; transform: translateX(100px); }
-  to { opacity: 1; transform: translateX(0); }
+  from {
+    opacity: 0;
+    transform: translateX(100px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 .toast.success {
@@ -902,13 +996,13 @@ body::before {
     grid-template-columns: 1fr;
     padding: 16px;
   }
-  
+
   .header {
     padding: 16px;
     flex-wrap: wrap;
     gap: 12px;
   }
-  
+
   .chart-wrapper {
     height: 400px;
   }
@@ -918,20 +1012,20 @@ body::before {
   .header-title h1 {
     font-size: 1rem;
   }
-  
+
   .current-price {
     font-size: 1.2rem;
   }
-  
+
   .chart-controls {
     flex-direction: column;
     gap: 8px;
   }
-  
+
   .chart-wrapper {
     height: 320px;
   }
-  
+
   .sltp-grid {
     grid-template-columns: 1fr;
   }
